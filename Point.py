@@ -5,14 +5,20 @@ class Point:
         self.parent = parent
 
         if parent is not None:
-            self.cost = parent.cost + 1
+            if (degree % 90) == 0:
+                self.cost = parent.cost + 1
+            else:
+                self.cost = parent.cost + 1.4
+            # self.cost = parent.cost + 1
+            # if degree != parent.degree:
+            #     self.cost += 1
         else:
             self.cost = 0
 
         if e_point is None:
             self.h = 0
         else:
-            self.h = abs(x - e_point.x)+ abs(y - e_point.y)
+            self.h = abs(x - e_point.x) + abs(y - e_point.y)
 
         self.degree = degree
 
@@ -21,8 +27,13 @@ class Point:
         self.y = p[1]
         self.parent = parent
 
+
+
         if parent is not None:
-            self.cost = parent.cost + 1
+            if (degree % 90) == 0:
+                self.cost = parent.cost + 1
+            else:
+                self.cost = parent.cost + 1.4
         else:
             self.cost = 0
 
@@ -34,13 +45,13 @@ class Point:
         self.degree = degree
 
     def __abs__(self):
-        return (self.x ^ 2 + self.y ^ 2) ^ 0.5
+        return (self.x ** 2 + self.y ** 2) ** 0.5
 
     def __eq__(self, other):
         return (self.x == other.x) and (self.y == other.y)
 
     def get_cost_func(self):
-        return self.cost + self.h
+        return self.cost + self.h * 1
 
     def __str__(self):
-        return "x: %d,y: %d,degree: %d"%(self.x, self.y, self.degree)
+        return "x: %d,y: %d,degree: %d" % (self.x, self.y, self.degree)

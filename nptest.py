@@ -1,9 +1,23 @@
 import numpy as np
 import cv2
+import pandas as pd
 
-black = np.array([0, 0, 0])
-a = cv2.imread('./maps/small-easy.png')
-print(a)
-map = np.full((a.shape[1], a.shape[0], 3), black)
+# a = np.zeros((2, 2),dtype=bool)
+#
+# for i in range(2):
+#     a[0, i] = True
+#
+# print(a)
+#
+# print(np.count_nonzero(a))
 
-print(map.shape)
+# a = [0, 1]
+# a.pop(0)
+# a.pop(0)
+# print([i in range(10)])
+
+class a:
+    def __init__(self,1 ,2):
+        self.x = 1
+        self.y = 2
+

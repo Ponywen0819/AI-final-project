@@ -1,112 +1,136 @@
-from Point import Point
-import math
-import cv2
 import numpy as np
+import cv2
+import math
 import os
+from rolling import rolling
+from graph import CellDec
+
+
 SIZE = 10
 
-class A_star:
-    def __init__(self, map, start: Point, end: Point):
-        self.map = map
+class Astar:
+    def __init__(self, start: tuple, end: tuple, map: np.ndarray, file: str):
         self.start = start
         self.end = end
-        self.left = []
-        self.ans = None
-        self.closed = []
-    def check_move(self, degree, p:Point):
-        '''
-        確認操作是否合法
-        :return:
-        '''
+        self.map = map
+        self.path = []
+        self.file = file
 
-        # 將角度轉換到實際操作
-        index_x = 0
-        index_y = 0
-        if (degree < 90) or (degree > 270):
-            index_y = 1
-        elif (degree == 90) or (degree == 270):
-            index_y = 0
-        else:
-            index_y = -1
+        # 用來記錄待估計的地點
+        self.open_set = []
+        # 用來紀錄已估計過的地點
+        self.close_set = [[0 for i in range(map.shape[0])] for j in range(map.shape[1])]
+        # 用來記錄真實距離
+        self.cost_set = [[0 for i in range(map.shape[0])] for j in range(map.shape[1])]
+        # 用來記錄角度
+        self.come = [[(0, 0) for i in range(map.shape[0])] for j in range(map.shape[1])]
 
-        if (degree > 0) and (degree < 180):
-            index_x = 1
-        elif (degree == 180) or (degree == 0):
-            index_x = 0
-        else:
-            index_x = -1
-        # 檢查碰撞
+    def setting(self, regions: list):
+        self.close_set = [[1 for i in range(self.map.shape[0])] for j in range(self.map.shape[1])]
+        for i in regions:
+            for x in range(i.w):
+                for y in range(i.h):
+                    self.close_set[i.y + y][i.x + x] = 0
+    def get_h(self, location: tuple)->float:
+        """
+        用來取得到終點的直線距離
+        :param location: 估計之位置
+        :return: 到終點之位置
+        """
+        temp_x = (location[0] - self.end[0]) ** 2
+        temp_y = (location[1] - self.end[1]) ** 2
+        return (temp_y + temp_x) ** 0.5
 
+    def get_min(self):
+        """
+        取得open_set中成本最小的節點
+        :return: 最小成本的位置
+        """
+        def calc(a, b):
+            return a + b * 2
+
+        pos_x, pos_y = self.open_set[0]
+        min_f = calc(self.cost_set[pos_y][pos_x], self.get_h((pos_x, pos_y)))
+        index = 0
+        for i, (x, y) in enumerate(self.open_set):
+            temp_val = calc(self.cost_set[y][x], self.get_h((x, y)))
+            if temp_val < min_f:
+                pos_x = x
+                pos_y = y
+                min_f = temp_val
+                index = i
+        self.open_set.pop(index)
+        self.close_set[pos_y][pos_x] = 1
+        return pos_x, pos_y
+
+    def check_move(self, location):
         for i in range(0, 360, 10):
-            temp_x = p.x + index_x + int(SIZE * math.sin(i))
-            temp_y = p.y + index_y + int(SIZE * math.cos(i))
-            if (temp_y >= self.map.shape[0]) or (temp_x >= self.map.shape[1]):
-                return  None
-            elif (self.map[temp_y, temp_x] == np.array([0, 0, 0])).all():
-                return None
-        return p.x + index_x, p.y + index_y
+            degree = i * math.pi / 180
+            temp_x = int(math.sin(degree) * SIZE) + location[0]
+            temp_y = int(math.cos(degree) * SIZE) + location[1]
+            if(temp_y >= self.map.shape[0]) or (temp_y < 0):
+                return False
+            if (temp_x >= self.map.shape[1]) or (temp_x < 0):
+                return False
+            if self.map[temp_y, temp_x] == 1:
+                return False
+        return True
 
-    def append(self, p: Point):
-        '''
-        將節點之子節點展開
-        '''
+    def append(self, location):
+        check_list = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
 
-        if p in self.closed:
-            return
-        # 逐一檢查合法節點
-        for i in range(0, 360, 45):
-            vaild_move = self.check_move(i, p)
-            if vaild_move is not None:
-                self.left.insert(0, Point(vaild_move, p, self.end, i))
-        # 將葉節點根據cost func進行排序
-        self.left.sort(key=lambda x: x.get_cost_func())
+        for step_x, step_y in check_list:
+            pos_x = location[0] + step_x
+            pos_y = location[1] + step_y
 
-    def get_path(self,filename):
-        temp = self.ans
-        ans_map = self.map
-        ans = []
-        while temp.parent is not None:
-            temp_x = temp.x
-            temp_y = temp.y
-            for i in range(temp_y-5,temp_y+4):
-                for j in range(temp_x-5, temp_x+4):
-                    ans_map[i, j] = np.array([255, 0, 0])
-            parent = temp.parent
+            if self.close_set[pos_y][pos_x] == 1:
+                continue
 
-            # 依據角度來重建路徑
-            if parent.degree == temp.degree:
-                ans.append(0)  # 插入前進
-            elif abs(parent.degree - temp.degree) == 180:
-                ans.append(1)  # 插入後退
-            else:
-                ans.append(0)
-                ans.append(2)  # 插入旋轉
-            temp = parent
+            if not self.check_move((pos_x, pos_y)):
+                continue
 
-        cv2.imwrite(os.path.join(os.getcwd(), 'res', filename), ans_map)
-        ans.reverse()
+            step_cost = (step_x ** 2 + step_y ** 2) ** 0.5
+            old_cost = self.cost_set[location[1]][location[0]]
+            new_cost =  old_cost + step_cost
 
+            if (new_cost < old_cost) or ((pos_x, pos_y) not in self.open_set):
+                self.come[pos_y][pos_x] = location
+                self.cost_set[pos_y][pos_x] = new_cost
+                self.open_set.append((pos_x, pos_y))
 
-        return ans
+    def get_path(self, location):
+        path = [location]
+        x, y = location
+        while (x, y) != self.start:
+            up_x, up_y = self.come[y][x]
+            path.append((up_x, up_y))
+            x = up_x
+            y = up_y
+        path.reverse()
+        self.path = path
 
-    def search(self) -> None:
-        '''
-            開始尋找路徑
-            :return:
-            none
-        '''
-        self.left.append(self.start)
-        # 初始化結束
-        max_node = self.map.shape[0] * self.map.shape[1]
+        img = cv2.imread(os.path.join(os.getcwd(), 'maps_img', self.file[:-4] + '.png'))
+        for x,y in path:
+            for i,j in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+                img[y + (j * SIZE), x + (i * SIZE)] = np.array([100 * (i + 1), 0, 100 * (j + 1)])
+        cv2.imwrite(os.path.join(os.getcwd(), 'res', self.file[:-4] + '.png'), img)
 
-        while len(self.left) <= max_node:
-            # 將第一優先的節點取出
-            temp_p = self.left.pop(0)
-            # print(temp_p)
-            # 將結點展開
-            if temp_p == self.end:
-                self.ans = temp_p
-                return
-            self.append(temp_p)
-            self.closed.append(temp_p)
+        return path
+
+    def search(self):
+        roll = rolling()
+
+        # 將初始位置放入估計列表中
+        self.open_set.append(self.start)
+        while self.open_set:
+            next(roll)
+            # 在open set中取出最小成本的位置
+            pos_x, pos_y = self.get_min()
+            # 查看是否為終點
+            if (pos_x == self.end[0]) and (pos_y == self.end[1]):
+                # 重建路逕
+                self.get_path((pos_x, pos_y))
+                return True
+            self.append((pos_x, pos_y))
+        return False
 
