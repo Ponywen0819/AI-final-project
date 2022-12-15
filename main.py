@@ -67,7 +67,6 @@ def main(maps):
         print('Done searching on ' + i[:-4])
 
 
-
 maps = os.listdir(os.path.join(os.getcwd(), 'maps_csv'))
-main(['big-hard.csv'])
+main(['big-medium.csv'])
 # gen_map('test.png')

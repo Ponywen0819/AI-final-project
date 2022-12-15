@@ -110,11 +110,11 @@ class CellDec:
             min_region = open_set[0]
             old_h = self.get_dis(min_region.x, min_region.y, end_reg.x, end_reg.y)
             old_c = self.get_dis(min_region.x, min_region.y, start_reg.x, start_reg.y)
-            old = old_c + old_h
+            old = old_c * 3 + old_h
             for tentative in open_set:
                 new_h = self.get_dis(tentative.x, tentative.y, end_reg.x, end_reg.y)
                 new_c = self.get_dis(tentative.x, tentative.y, start_reg.x, start_reg.y)
-                new = new_c + new_h
+                new = new_c * 3 + new_h
                 if new < old:
                     old = new
                     min_region = tentative
@@ -219,6 +219,7 @@ class CellDec:
             x += step_x
             y += step_y
         return white > black
+
     def get_regions(self, lines):
         print("Starting Cutting")
         # 將地圖上的斷點取出
