@@ -1,9 +1,7 @@
 import numpy as np
 import cv2
-import math
 import os
 from rolling import rolling
-from graph import CellDec
 
 
 SIZE = 1
@@ -64,16 +62,8 @@ class Astar:
         return pos_x, pos_y
 
     def check_move(self, location):
-        for i in range(0, 360, 10):
-            degree = i * math.pi / 180
-            temp_x = int(math.sin(degree) * SIZE) + location[0]
-            temp_y = int(math.cos(degree) * SIZE) + location[1]
-            if(temp_y >= self.map.shape[0]) or (temp_y < 0):
-                return False
-            if (temp_x >= self.map.shape[1]) or (temp_x < 0):
-                return False
-            if self.map[temp_y, temp_x] == 1:
-                return False
+        if self.map[location[1], location[0]] == 1:
+            return False
         return True
 
     def append(self, location):
@@ -133,4 +123,3 @@ class Astar:
                 return True
             self.append((pos_x, pos_y))
         return False
-

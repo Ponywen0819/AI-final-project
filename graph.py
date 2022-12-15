@@ -1,5 +1,3 @@
-import math
-
 import cv2
 import numpy as np
 import os
@@ -12,20 +10,16 @@ class Vertex:
         self.w = info[2]
         self.h = info[3]
         self.connect = []
-
     def __str__(self):
         return "x: %d, y: %d, w: %d, h: %d" %(self.x, self.y, self.w, self.h)
 
 class CellDec:
     def __init__(self, map_data: np.ndarray):
         self.map = map_data
-        # 用來紀錄線段
-        self.region_black = []
-        self.region_white = []
-        # 用來記錄圖
+        self.path = []
+        self.regions = []
         self.graph = []
-        # 用來存放可能是圓形的圖形
-        self.maybe = []
+        self.lines = []
 
     def get_pixel(self, x, y):
         pix = self.map[y, x]
@@ -86,10 +80,10 @@ class CellDec:
         for i in regions:
             for x in range(i[2]):
                 img[i[1], i[0] + x] = np.array([50, 255, 0])
-                # img[i[1] + i[3] - 1, i[0] + x] = np.array([255, 100, 0])
+                img[i[1] + i[3] - 1, i[0] + x] = np.array([255, 100, 0])
             for y in range(i[3]):
                 img[i[1] + y, i[0]] = np.array([100, 50, 255])
-                # img[i[1] + y, i[0] + i[2] - 1] = np.array([200, 100, 34])
+                img[i[1] + y, i[0] + i[2] - 1] = np.array([200, 100, 34])
         cv2.imwrite(os.path.join(os.getcwd(), 'res', f[:-4] + t +'.png'), img)
 
     def search(self, start, end):
@@ -132,6 +126,7 @@ class CellDec:
                     n = self.graph[p_i]
                     path.append([n.x, n.y, n.w, n.h])
                     p_i = path_set[p_i]
+                    self.path = path
                 return path
             for con in min_region.connect:
                 if check[self.graph.index(con)] == 1:
@@ -141,7 +136,63 @@ class CellDec:
                     open_set.append(con)
         return None
 
+    def big(self):
+        print(self.map.shape)
+        SIZE = 10
+        # 做x軸膨脹
+        for x in range(self.map.shape[1]):
+            pix = self.map[0, x]
+            temp = []
+            for y in range(1, self.map.shape[0]):
+                now = self.get_pixel(x, y)
+                if now != pix:
+                    temp.append((y, now))
+                pix = self.get_pixel(x, y)
+            # 開始膨脹
+            for t in temp:
+                # 判斷顏色 如果是白的就往下長
+                offest = 0
+                step = 1
+                if t[1] != 0:
+                    offest = 1
+                    step = -1
+                y_now = t[0]
+                i = 0
+                while i < (SIZE + offest):
+                    if y_now >= self.map.shape[0]:
+                        break
+                    self.map[y_now, x] = 1
+                    y_now += step
+                    i += 1
+        # 做y軸膨脹
+        for y in range(self.map.shape[0]):
+            pix = self.map[y, 0]
+            temp = []
+            for x in range(1, self.map.shape[1]):
+                now = self.get_pixel(x, y)
+                if now != pix:
+                    temp.append((x, now))
+                pix = self.get_pixel(x, y)
+            # 開始膨脹
+            for t in temp:
+                # 判斷顏色 如果是白的就往下長
+                offest = 0
+                step = 1
+                if t[1] != 0:
+                    offest = 1
+                    step = -1
+                x_now = t[0]
+                i = 0
+                while i < (SIZE + offest):
+                    if x_now >= self.map.shape[1]:
+                        break
+                    self.map[y, x_now] = 1
+                    x_now += step
+                    i += 1
+        return map
+
     def getLines(self):
+        self.big()
         print('Start finding lines')
         # 用來存放還在計算的線段
         open_line = []
@@ -268,19 +319,14 @@ class CellDec:
                 else:
                     i += 1
         regions = [reg for reg in regions if self.check_region_type(reg)]
+        self.regions = regions
         return regions
 
-    def draw_line(self, f, lines, w: 1):
-        img = cv2.imread(os.path.join(os.getcwd(), 'maps_img', f[:-4] + '.png'))
-        for line in lines:
-            img = cv2.circle(img, (line[0], line[1]), radius=w - 1, color=(0, 0, 255), thickness=-1)
-            img = cv2.circle(img, (line[2], line[3]), radius=w - 1, color=(255, 0, 0), thickness=-1)
-            # cv2.line(img, line[:2], line[2:4], (255, 0, 0), w)
-        cv2.imwrite(os.path.join(os.getcwd(), 'res', f[:-4] + '_lines.png'), img)
-
-
-# map = np.genfromtxt(os.path.join(os.getcwd(), 'maps_csv', 'test.csv'), delimiter=',')
-# a = CellDec(map)
-#
-# a.cutting()
-# a.search((20, 5), (90, 92))
+    def get_map(self):
+        res = self.map.copy()
+        regions_black = [r for r in self.regions if r not in self.path]
+        for i in regions_black:
+            for x in range(i[2]):
+                for y in range(i[3]):
+                    res[i[1] + y][i[0] + x] = 1
+        return res

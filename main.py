@@ -1,8 +1,5 @@
 import os
-import pandas as pd
-from Point import Point
 from A_star import Astar
-# from cell_decomposition import Div
 import cv2
 import numpy as np
 from graph import CellDec
@@ -56,17 +53,21 @@ def main(maps):
         cell = CellDec(map)
         lines = cell.getLines()
         regions = cell.get_regions(lines)
-        cell.draw(i, regions, '_cu')
+
+        # cell.draw(i, regions, '_cu')
+
         cell.gen_graph(regions)
         regs = cell.search(now_on, e_point)
-        cell.draw(i[:-4] + '.png', regs, '_se')
-        if regs is not None:
-            a.setting(regs)
+
+        # cell.draw(i[:-4] + '.png', regs, '_se')
+
+        a.close_set = cell.get_map()
+        a.setting(regs)
         print('start searching on ' + i[:-4])
         print(a.search())
         print('Done searching on ' + i[:-4])
 
 
 maps = os.listdir(os.path.join(os.getcwd(), 'maps_csv'))
-main(['big-medium.csv'])
+main(['small-hard.csv'])
 # gen_map('test.png')
