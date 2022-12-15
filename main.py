@@ -49,13 +49,17 @@ def preprocessing(img, e, s):
 def main(maps):
     for i in maps:
         print('initial searching on ' + i[:-4])
-        map = np.genfromtxt(os.path.join(os.getcwd(), 'maps_csv', i),delimiter=',')
+        map = np.genfromtxt(os.path.join(os.getcwd(), 'maps_csv', i), delimiter=',')
         e_point = get_point(map, 3)
         now_on = get_point(map, 2)
         a = Astar(now_on, e_point, map, i)
         cell = CellDec(map)
-        cell.cutting()
+        lines = cell.getLines()
+        regions = cell.get_regions(lines)
+        cell.draw(i, regions, '_cu')
+        cell.gen_graph(regions)
         regs = cell.search(now_on, e_point)
+        cell.draw(i[:-4] + '.png', regs, '_se')
         if regs is not None:
             a.setting(regs)
         print('start searching on ' + i[:-4])
@@ -65,4 +69,5 @@ def main(maps):
 
 
 maps = os.listdir(os.path.join(os.getcwd(), 'maps_csv'))
-main(['big-easy.csv'])
+main(['big-hard.csv'])
+# gen_map('test.png')

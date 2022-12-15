@@ -6,7 +6,7 @@ from rolling import rolling
 from graph import CellDec
 
 
-SIZE = 10
+SIZE = 1
 
 class Astar:
     def __init__(self, start: tuple, end: tuple, map: np.ndarray, file: str):
@@ -28,9 +28,9 @@ class Astar:
     def setting(self, regions: list):
         self.close_set = [[1 for i in range(self.map.shape[0])] for j in range(self.map.shape[1])]
         for i in regions:
-            for x in range(i.w):
-                for y in range(i.h):
-                    self.close_set[i.y + y][i.x + x] = 0
+            for x in range(i[2]):
+                for y in range(i[3]):
+                    self.close_set[i[1] + y][i[0] + x] = 0
     def get_h(self, location: tuple)->float:
         """
         用來取得到終點的直線距離
