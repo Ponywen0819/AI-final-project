@@ -54,7 +54,7 @@ def main(maps):
         lines = cell.getLines()
         regions = cell.get_regions(lines)
 
-        # cell.draw(i, regions, '_cu')
+        cell.draw(i, regions, '_cu')
 
         cell.gen_graph(regions)
         regs = cell.search(now_on, e_point)

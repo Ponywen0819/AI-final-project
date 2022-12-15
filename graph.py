@@ -10,6 +10,7 @@ class Vertex:
         self.w = info[2]
         self.h = info[3]
         self.connect = []
+        self.rr = rolling()
     def __str__(self):
         return "x: %d, y: %d, w: %d, h: %d" %(self.x, self.y, self.w, self.h)
 
@@ -137,6 +138,7 @@ class CellDec:
         return None
 
     def big(self):
+
         print(self.map.shape)
         SIZE = 10
         # 做x軸膨脹
