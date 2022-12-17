@@ -76,7 +76,7 @@ class CellDec:
     def get_dis(x_1, y_1, x_2, y_2):
         return ((x_1 - x_2) ** 2 + (y_1 - y_2) ** 2) ** 0.5
 
-    def draw(self, f, regions, t: ''):
+    def draw(self, f, regions, t:str = ''):
         img = cv2.imread(os.path.join(os.getcwd(), 'maps_img', f[:-4] + '.png'))
         for i in regions:
             for x in range(i[2]):
@@ -191,7 +191,7 @@ class CellDec:
                     self.map[y, x_now] = 1
                     x_now += step
                     i += 1
-        return map
+        return self.map
 
     def getLines(self):
         self.big()
@@ -203,27 +203,30 @@ class CellDec:
         for x in range(self.map.shape[1]):
             # 尋找邊緣
             pix = self.map[0, x]
-            temp = []
-            # temp = [] if pix == 0 else [0]
+            temp = [0] if pix == 0 else []
             for y in range(1, self.map.shape[0]):
                 now = self.get_pixel(x, y)
                 if now != pix:
-                    # temp.append(y if now == 1 else y - 1)
-                    temp.append(y)
+                    if now == 0:
+                        temp.append(y)
+                    else:
+                        temp.append(y - 1)
+                    # temp.append(y)
                 pix = self.get_pixel(x, y)
             i = 0
+            if pix == 0:
+                temp.append(self.map.shape[0] - 1)
             # 檢查線段是否封閉
             while i < len(open_line):
                 if open_line[i][2] != (x - 1):
                     # 如果是點 或是太短 則跳過
                     if abs(open_line[i][0] - open_line[i][2]) > (self.map.shape[1] // 100):
-                        open_line[i][2] += 1
+                        # open_line[i][2] += 1
                         close_line.append(open_line[i])
                     open_line.pop(i)
                 else:
                     i += 1
             # 每條線為(x_1, y_1, x_2, y_2)
-            # 選擇對於線段最近的邊緣
             for edge in temp:
                 found = False
                 for line in open_line:
@@ -248,12 +251,12 @@ class CellDec:
                     open_line.append([x, edge, x, edge])
 
         for i in open_line:
-            i[2] += 1
             close_line.append(i)
+        print(len(close_line))
 
         return close_line
 
-    def check_region_type(self, r):
+    def check_region_type(self, r) :
         x, y, w, h = r
         x_2 = x + w
         y_2 = y + h
@@ -273,56 +276,115 @@ class CellDec:
             y += step_y
         return white > black
 
-    def get_regions(self, lines):
-        print("Starting Cutting")
-        # 將地圖上的斷點取出
+
+    def find_closest_line(self, lines, target) -> int:
+        # 確認線條是往上還往下
+        line_x = target[0]
+
+        line_y = target[1] - 1
+        if line_y < 0:
+            step = 1
+        else:
+            step = -1 if self.map[line_y, line_x] == 0 else 1
+
+        # 用來存放結果
+        res = -1
+        # 將檢查集合內的線段
+        for l_i, other_line in enumerate(lines):
+            if (step == 1) and (other_line[1] < target[1]):
+                continue
+            elif (step == -1) and (other_line[1] > target[1]):
+                continue
+            # 判斷是否在區域內
+            judge = 0
+            for i in range(2):
+                for j in range(2):
+                    if (target[i * 2] - other_line[j * 2]) < 0:
+                        judge += 1
+            # 不再區域內則跳過
+            if (judge == 0) or (judge == 4):
+                continue
+
+            if res == -1:
+                res = l_i
+
+            if abs(target[1] - other_line[1]) < abs(target[1] - lines[res][1]):
+                res = l_i
+
+        return res
+
+    @staticmethod
+    def cut_line(lines):
+        # 取出x的斷點
         location_x = []
-        location_y = []
         for line in lines:
-            for i in range(0, 4, 2):
-                if line[i] not in location_x:
-                    location_x.append(line[i])
-                if line[i + 1] not in location_x:
-                    location_y.append(line[i + 1])
-        location_x.sort()
-        location_y.sort()
-        regions = [[0, 0, self.map.shape[1], self.map.shape[0]]]
-        # 使用斷點將地圖分割
-        for y in location_y:
-            i = 0
-            while i < len(regions):
-                region_now = regions[i]
-                h = region_now[3]
-                diff = y - region_now[1]
-                if diff < (self.map.shape[0] // 100):
-                    i+=1
+            for i in range(2):
+                l = 0
+                for x in location_x:
+                    if x < (line[i * 2] + i):
+                        l += 1
+                location_x.insert(l, line[i * 2] + i)
+        # print(location_x)
+        res = []
+        for line in lines:
+            # 使用斷點對線段進行分割
+            cut_line = [line]
+            for x in location_x:
+                # 判斷斷點是否對此線段有效 有則分割
+                if (cut_line[-1][0] < x) and (cut_line[-1][2] >= x):
+                    cuting = cut_line.pop(-1)
+
+                    def get_new_y(x, line):
+                        x_scale = (line[2] - line[0])
+                        y_scale = (line[3] - line[1])
+
+                        per = (x - line[0]) / x_scale
+                        return int(per * y_scale) + line[1]
+
+                    left = [cuting[0], cuting[1], x - 1, get_new_y(x - 1, cuting)]
+                    right = [x, get_new_y(x, cuting), cuting[2], cuting[3]]
+                    cut_line.append(left)
+                    cut_line.append(right)
+            res.extend(cut_line)
+        # 找出重複範圍的線段進行合併
+        reg = []
+        for l_1 in res:
+            for l_2 in res:
+                if l_1 == l_2:
                     continue
-                if (diff < h) and (diff > 0):
-                    region1 = [region_now[0], region_now[1], region_now[2], diff]
-                    region2 = [region_now[0], region_now[1] + diff, region_now[2], h - diff]
-                    regions = regions[0:i] + [region1, region2] + regions[i + 1:]
-                    i += 2
-                else:
-                    i += 1
-        for x in location_x:
-            i = 0
-            while i < len(regions):
-                region_now = regions[i]
-                w = region_now[2]
-                diff = x - region_now[0]
-                if diff < (self.map.shape[1] // 100):
-                    i+=1
-                    continue
-                if (diff < w) and (diff > 0):
-                    region1 = [region_now[0], region_now[1], diff, region_now[3]]
-                    region2 = [region_now[0] + diff, region_now[1],  w - diff, region_now[3]]
-                    regions = regions[0:i] + [region1, region2] + regions[i + 1:]
-                    i += 2
-                else:
-                    i += 1
-        regions = [reg for reg in regions if self.check_region_type(reg)]
-        self.regions = regions
-        return regions
+                if (l_1[0] == l_2[0]) and (l_1[2] == l_2[2]):
+                    if l_1[1] > l_2[1]:
+                        reg = [l_2, l_1]
+                    else:
+                        reg = [l_1, l_2]
+                    res.remove(l_1)
+                    res.remove(l_2)
+
+        return reg, res
+
+    def get_regions(self, lines: list):
+            print("Starting Cutting")
+            regions = []
+            # 重複切割 合併線條 直到所有線條合併完成
+            while lines:
+                print(len(lines))
+                # 取出線段的資訊
+                line = lines.pop(0)
+
+                # 找到離自己最近的線段
+                closest_index = self.find_closest_line(lines, line)
+                if closest_index == -1:
+                    print("funk")
+                closest_line = lines.pop(closest_index)
+
+                # 將兩線段進行分割
+                new_region, cut_lines = self.cut_line([closest_line, line])
+
+                lines.extend(cut_lines)
+
+                regions.append(new_region)
+            return regions
+
 
     def get_map(self):
         res = self.map.copy()

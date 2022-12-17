@@ -52,20 +52,38 @@ def main(maps):
         a = Astar(now_on, e_point, map, i)
         cell = CellDec(map)
         lines = cell.getLines()
+
+        img = cv2.imread(os.path.join(os.getcwd(), 'maps_img', i[:-4] + '.png'))
+
+        for l in lines:
+            img = cv2.circle(img, l[:2], 0, (255, 0, 0), -1)
+            img = cv2.circle(img, l[2:4], 0, (0, 255, 0), -1)
+        cv2.imwrite(os.path.join(os.getcwd(), 'res', i[:-4] + 'line.png'), img)
+
         regions = cell.get_regions(lines)
 
-        cell.draw(i, regions, '_cu')
+        img = cv2.imread(os.path.join(os.getcwd(), 'maps_img', i[:-4] + '.png'))
 
-        cell.gen_graph(regions)
-        regs = cell.search(now_on, e_point)
+        for r in regions:
+            img = cv2.line(img, (r[0][0], r[0][1]), (r[0][2], r[0][3]), (255, 0, 0), 1)
+            img = cv2.line(img, (r[1][0], r[1][1]), (r[1][2], r[1][3]), (0, 255, 0), 1)
+            img = cv2.line(img, (r[0][0], r[0][1]), (r[1][0], r[1][1]), (0, 0, 255), 1)
+            img = cv2.line(img, (r[0][2], r[0][3]), (r[1][2], r[1][3]), (255, 0, 0), 1)
+
+        cv2.imwrite(os.path.join(os.getcwd(), 'res', i[:-4] + 'line.png'), img)
+        #
+        # cell.draw(i, regions, '_cu')
+        #
+        # cell.gen_graph(regions)
+        # regs = cell.search(now_on, e_point)
 
         # cell.draw(i[:-4] + '.png', regs, '_se')
-
-        a.close_set = cell.get_map()
-        a.setting(regs)
-        print('start searching on ' + i[:-4])
-        print(a.search())
-        print('Done searching on ' + i[:-4])
+        #
+        # a.close_set = cell.get_map()
+        # a.setting(regs)
+        # print('start searching on ' + i[:-4])
+        # print(a.search())
+        # print('Done searching on ' + i[:-4])
 
 
 maps = os.listdir(os.path.join(os.getcwd(), 'maps_csv'))

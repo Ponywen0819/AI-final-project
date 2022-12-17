@@ -100,8 +100,8 @@ class Astar:
         self.path = path
 
         img = cv2.imread(os.path.join(os.getcwd(), 'maps_img', self.file[:-4] + '.png'))
-        for x,y in path:
-            for i,j in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        for x, y in path:
+            for i, j in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
                 img[y + (j * SIZE), x + (i * SIZE)] = np.array([100 * (i + 1), 0, 100 * (j + 1)])
         cv2.imwrite(os.path.join(os.getcwd(), 'res', self.file[:-4] + '.png'), img)
 
