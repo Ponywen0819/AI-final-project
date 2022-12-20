@@ -34,12 +34,12 @@ def shortest_path(start, end, map, file):
 
 def complete_coverage_path(start, map, file):
     ccpp = CCPP(start, map)
-    ccpp.enlarge_map()
-
+    ccpp.Coverage()
+    ccpp.back_home()
 def main(maps):
     for i in maps:
         print('proccessing on ' + i[:-4])
-        map = np.genfromtxt(os.path.join(os.getcwd(), 'maps_csv', i), delimiter=',')
+        map = np.genfromtxt(os.path.join(os.getcwd(), 'maps_csv', i), delimiter=',', dtype=int)
         end = get_point(map, 3)
         start = get_point(map, 2)
 
