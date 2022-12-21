@@ -34,7 +34,7 @@ def shortest_path(start, end, map, file):
 
 def complete_coverage_path(start, map, file):
     ccpp = CCPP(start, map)
-    ccpp.Coverage()
+    ccpp.coverage()
     ccpp.back_home()
 def main(maps):
     for i in maps:
