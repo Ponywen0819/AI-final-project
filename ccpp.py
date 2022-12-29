@@ -1,15 +1,16 @@
 import cv2
 import numpy as np
-import math
 from rolling import rolling
 import collections
+import map_process
 
-SIZE = 10
+SIZE = 6
 
 
 class CCPP:
-    def __init__(self, start: tuple, map: np.ndarray):
-        self.map = map
+    def __init__(self, start: tuple, map: np.ndarray, file):
+        self.file = file
+
         self.w = map.shape[1]
         self.h = map.shape[0]
         self.start = start
@@ -28,76 +29,19 @@ class CCPP:
         self.b_x = np.zeros((self.h, self.w), dtype=int)
         self.b_y = np.zeros((self.h, self.w), dtype=int)
         # 初始化資料
-        self.enlarge_map()  # 放大障礙物邊框
+        self.map = map_process.map_enlarge(map)
         self.get_cost_map()
 
-    @staticmethod
-    def get_distance(x_1, y_1, x_2, y_2):
-        return ((x_1 - x_2) ** 2 + (y_1 - y_2) ** 2) ** 0.5
+        self.can_reach = 0
+        self.reached = np.zeros((self.h,self.w))
 
-    def enlarge_map(self):
-        print('Start enlarge map')
-        rolling_sign = rolling()
-        # 用於存放障礙物放大後的地圖
-        res = np.copy(self.map)
-
-        # 遍歷全部的節點
-        for y in range(self.map.shape[0]):
-            for x in range(self.map.shape[1]):
-                next(rolling_sign)
-                if self.map[y, x] == 0:
-                    continue
-                if (self.map[y, x] == 2) or (self.map[y, x] == 3):
-                    res[y, x] = 0
-                    continue
-                # 檢查是否是障礙物邊緣
-                is_edge = False
-                for i, j in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
-                    try:
-                        if int(self.map[y + j, x + i]) == 0:
-                            is_edge = True
-                    except:
-                        pass
-                if not is_edge:
-                    continue
-
-                # 在黑色的周圍 也就是障礙物附近擴張
-                for i in range(x - SIZE, x + SIZE):
-                    for j in range(y - SIZE, y + SIZE):
-                        if self.get_distance(x, y, i, j) < SIZE:
-                            try:
-                                res[j, i] = 1
-                            except:
-                                pass
-        # 地圖邊緣膨脹
-        for y in range(-1, self.map.shape[0] + 1):
-            for i in range(-SIZE, SIZE):
-                for j in range(-SIZE, SIZE):
-                    if self.get_distance(-1, y, i - 1, j + y) < SIZE:
-                        try:
-                            res[j + y, i - 1] = 1
-                        except:
-                            pass
-        for x in range(-1, self.map.shape[1] + 1):
-            for i in range(-SIZE, SIZE):
-                for j in range(-SIZE, SIZE):
-                    if self.get_distance(x, -1, i + x, j - 1) < SIZE + 0.5:
-                        try:
-                            res[j - 1, i + x] = 1
-                        except:
-                            pass
-
-        img = cv2.imread('maps_img/small-hard.png')
-        for x in range(img.shape[1]):
-            for y in range(img.shape[0]):
-                img[y, x] = np.array([255, 255, 255] if res[y, x] == 0 else [0, 0, 0])
-        cv2.imwrite('res/small-hard-large.png', img)
-        self.map = res
+        # 紀錄總步數
+        self.step = 0
+        # 記錄旋轉次數
+        self.spin = 0
 
     # 將全地圖節點織成本算出
     def get_cost_map(self):
-        print('Start calc cost')
-
         self.open_list.append(self.start)
         self.cost[self.start[1], self.start[0]] = 0
         self.b_x[self.start[1], self.start[0]] = self.start[0]
@@ -156,25 +100,56 @@ class CCPP:
                         self.open_list.append((next_x, next_y))
                 except IndexError:
                     pass
-
-        print()
-
+        print('done')
     def set_visited(self, pos):
-        for x in range(pos[0] - SIZE // 2, pos[0] + SIZE // 2 + 1):
-            for y in range(pos[1] - SIZE // 2, pos[1] + SIZE // 2 + 1):
-                try:
-                    self.visited[y, x] = True
-                except:
-                    pass
+        # for x in range(pos[0] - SIZE, pos[0] + SIZE + 1):
+        #     for y in range(pos[1] - SIZE, pos[1] + SIZE + 1):
+        #         try:
+        #             self.visited[y, x] = True
+        #         except:
+        #             pass
+        x_down = pos[0] - SIZE
+        x_up = pos[0] + SIZE + 1
+        y_down = pos[1] - SIZE
+        y_up = pos[1] + SIZE + 1
 
+        if x_down < 0:
+            x_down = 0
+        if x_up > self.w:
+            x_up = self.w
+        if y_down < 0:
+            y_down = 0
+        if y_up > self.h:
+            y_up = self.h
+        self.visited[y_down: y_up, x_down:x_up] = True
     def set_overlap(self, pos):
-        for x in range(pos[0] - SIZE, pos[0] + SIZE + 1):
-            for y in range(pos[1] - SIZE, pos[1] + SIZE + 1):
-                try:
-                    self.overlapping[y, x] = True
-                except:
-                    pass
+        # for x in range(pos[0] - (SIZE * 2), pos[0] + (SIZE * 2) + 1):
+        #     for y in range(pos[1] - (SIZE * 2), pos[1] + (SIZE * 2) + 1):
+        #         try:
+        #             self.overlapping[y, x] = True
+        #         except:
+        #             pass
+        x_down = pos[0] - (SIZE * 2)
+        x_up = pos[0] + (SIZE * 2) + 1
+        y_down = pos[1] - (SIZE * 2)
+        y_up = pos[1] + (SIZE * 2) + 1
 
+        if x_down < 0:
+            x_down = 0
+        if x_up > self.w:
+            x_up = self.w
+        if y_down < 0:
+            y_down = 0
+        if y_up > self.h:
+            y_up = self.h
+        self.overlapping[y_down: y_up, x_down:x_up] = True
+
+    def set_reached(self, pos):
+        y, x = np.ogrid[0:self.h, 0:self.w]
+
+        mask = (x - pos[0]) ** 2 + (y - pos[1]) ** 2 <= 100
+
+        self.reached[mask] = True
     def search(self, start):
         # 找到離自己最近的
         # 1. 未探索的點
@@ -209,14 +184,22 @@ class CCPP:
                     by_obstacle = True
                     break
             exist = False
-            # 是否在範圍內有位尋訪節點
-            for x in range(append[0] - SIZE // 2, append[0] + SIZE // 2 + 1):
-                for y in range(append[1] - SIZE // 2, append[1] + SIZE // 2 + 1):
-                    if self.visited[y, x] == False:
-                        exist = True
-                        break
-                if exist:
-                    break
+            x_down = append[0] - 6
+            x_up = append[0] + 7
+            y_down = append[1] - 6
+            y_up = append[1] + 7
+
+            if x_down < 0:
+                x_down = 0
+            if x_up > self.w:
+                x_up = self.w
+            if y_down < 0:
+                y_down = 0
+            if y_up > self.h:
+                y_up = self.h
+
+            if (self.visited[y_down: y_up, x_down:x_up] == False).any():
+                exist = True
 
             if exist and by_obstacle:
                 ans = append
@@ -226,7 +209,7 @@ class CCPP:
             father_cost = cost[append[1], append[0]]
 
             # 直線個展開方向
-            for step_x, step_y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+            for step_x, step_y in [(1, 0), (0, 1), (-1, 0), (0, -1),(1, 1), (-1, 1), (-1, -1), (1, -1)]:
                 next_x = append[0] + step_x
                 next_y = append[1] + step_y
                 next_cost = father_cost + 1
@@ -249,45 +232,25 @@ class CCPP:
                         open_list.append((next_x, next_y))
                 except IndexError:
                     pass
-            # 斜角展開方向
-            for step_x, step_y in [(1, 1), (-1, 1), (-1, -1), (1, -1)]:
-                next_x = append[0] + step_x
-                next_y = append[1] + step_y
-                next_cost = father_cost + 1.4
-                try:
-                    # 如果是障礙物則跳過
-                    if self.map[next_y, next_x] == 1:
-                        continue
-                    # 如果節點已被展開 判斷是此節點是否為較好的路徑
-                    if (cost[next_y, next_x] < next_cost) and (cost[next_y, next_x] != -1):
-                        continue
-                    elif cost[next_y, next_x] != -1:
-                        cost[next_y, next_x] = next_cost
-                        b_x[next_y, next_x] = append[0]
-                        b_y[next_y, next_x] = append[1]
-                    else:
-                        cost[next_y, next_x] = next_cost
-                        b_x[next_y, next_x] = append[0]
-                        b_y[next_y, next_x] = append[1]
-                        open_list.append((next_x, next_y))
-                except IndexError:
-                    pass
-
-            print()
 
         if ans == None:
             return None
         else:
             path = [ans]
+            self.set_visited(ans)
+            self.set_overlap(ans)
+            self.set_reached(ans)
             while path[0] != start:
                 now = path[0]
+                self.set_visited(now)
+                self.set_overlap(now)
+                self.set_reached(now)
                 path.insert(0, (b_x[now[1], now[0]], b_y[now[1], now[0]]))
 
             return path
 
     # 計算路徑
     def coverage(self):
-        radius = SIZE // 2
         # 這裡會以邊長為SIZE + 1的正方形去做運算
         current = self.start
         c_x = current[0]
@@ -296,19 +259,18 @@ class CCPP:
 
         append = collections.deque([current])
         last = 0
+        # 設定初始機器人方向
+        direction = (1, 0)
         while append:
             # 將現在的位置標記上已造訪
-            # print(path[-1], end='')
-
             self.set_visited(current)
-
             self.set_overlap(current)
-
+            self.set_reached(current)
 
             next_move = None
             for check_x, check_y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
-                next_x = c_x + check_x * SIZE + check_x
-                next_y = c_y + check_y * SIZE + check_y
+                next_x = c_x + check_x * (SIZE * 2) + check_x
+                next_y = c_y + check_y * (SIZE * 2) + check_y
                 try:
                     if (self.overlapping[next_y, next_x] == False) and (self.cost[next_y, next_x] != -1):
                         if next_move is None:
@@ -321,27 +283,40 @@ class CCPP:
                 next_move = self.search(current)
                 if next_move != None:
                     for p in next_move:
-                        self.set_visited(p)
-                        self.set_overlap(p)
-                    current = next_move[-1]
+                        dir_x = p[0] - current[0]
+                        dir_y = p[1] - current[1]
+                        if (dir_x, dir_y) == direction:
+                            self.step += 1
+                        elif (-dir_x, -dir_y) == direction:
+                            self.step += 1
+                        else:
+                            self.step += 1
+                            self.spin += 1
+                            direction = (dir_x, dir_y)
+
+                        current = p
                     c_x = current[0]
                     c_y = current[1]
                     path.extend(next_move)
                 else:
                     break
             else:
+                dir_x = next_move[0] - current[0]
+                dir_y = next_move[1] - current[1]
+                if (dir_x, dir_y) == direction:
+                    self.step += 11
+                elif (-dir_x, -dir_y) == direction:
+                    self.step += 11
+                else:
+                    self.step += 11
+                    self.spin += 1
+                    direction = (dir_x, dir_y)
                 current = next_move
                 c_x = current[0]
                 c_y = current[1]
                 path.append(next_move)
 
         self.path = path
-
-        # img = cv2.imread('res/small-hard-large.png')
-        # for i in range(1, len(self.path)):
-        #     cv2.line(img, self.path[i - 1], self.path[i], (200, 100, 100), 1)
-        # cv2.imwrite('res/test-line.png', img)
-
 
     def back_home(self):
         current = self.path[-1]
@@ -350,7 +325,6 @@ class CCPP:
         path = [current]
 
         while 1:
-            print((c_x, c_y), end='\r')
             next_x = self.b_x[c_y, c_x]
             next_y = self.b_y[c_y, c_x]
             c_x = next_x
@@ -362,10 +336,52 @@ class CCPP:
 
         self.path.extend(path)
 
+        rrrr = [(163, 200, 150), (13, 200, 10)]
+        img = cv2.imread('maps_img/' + self.file + '.png')
+        for i in range(0, len(self.path)):
+            cv2.line(img, self.path[i - 1], self.path[i], rrrr[i%2], 20)
+            # cv2.circle(img, self.path[i], 10 , rrrr[i % 2], -1)
+        cv2.imwrite('res/' + self.file + '_coverage.png', img)
 
-        img = cv2.imread('maps_img/small-hard.png')
+        img2 = cv2.imread('maps_img/' + self.file + '.png')
         for i in range(1, len(self.path)):
-            cv2.circle(img, self.path[i], SIZE, (200, 100, 100), -1)
-            # cv2.line(img, self.path[i - 1], self.path[i], (200, 100, 100), 1)
-        cv2.imwrite('res/test-line.png', img)
-        # print(path)
+            cv2.line(img2, self.path[i - 1], self.path[i], rrrr[i%2], 1)
+        cv2.imwrite('res/' + self.file + '_ccpp_path.png', img2)
+
+    def get_can_reached(self):
+        def enlarge_circle(c_x, c_y, map):
+            y, x = np.ogrid[0:map.shape[0], 0:map.shape[0]]
+
+            mask = (x - c_x) ** 2 + (y - c_y) ** 2 <= 100
+
+            map[mask] = 0
+
+        res = np.copy(self.map)
+
+        for y in range(self.h):
+            for x in range(self.w):
+                if self.map[y, x] == 1:
+                    continue
+                if (self.map[y, x] == 2) or (self.map[y, x] == 3):
+                    res[y, x] = 0
+                    continue
+                # 檢查是否是障礙物邊緣
+                is_edge = False
+                for i, j in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
+                    next_x = x + i
+                    next_y = y + j
+                    if (next_y < 0) or (next_y > (self.map.shape[0] - 1)):
+                        continue
+                    if (next_x < 0) or (next_x > (self.map.shape[1] - 1)):
+                        continue
+                    if int(self.map[next_y, next_x]) == 1:
+                        is_edge = True
+                if not is_edge:
+                    continue
+                enlarge_circle(x, y, res)
+        self.can_reach = np.count_nonzero(res == 0)
+
+
+
+
+
